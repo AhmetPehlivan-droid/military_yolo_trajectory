@@ -1,115 +1,26 @@
-# Aerial Trajectory Forecasting
-
-İHA (drone) görüntülerinde yaban hayatı ve kırsal trafik izleme için tespit, takip ve kısa vadeli yörünge tahmini yapan bir bilgisayarlı görü hattı.
-
-Sistem her karede nesneleri bulur, kameranın kendi hareketini çıkarır, her nesneye kalıcı bir kimlik verir ve nesnenin 0,5 / 1,0 / 1,5 saniye sonra (30 FPS'te t+15, t+30, t+45 kare) nerede olacağını belirsizlik elipsleriyle birlikte tahmin eder.
-
-## Nasıl çalışır
-
-| Aşama | Sınıf | Görev |
-|---|---|---|
-| 1. Tespit | `Detector` | YOLOv8 `model.predict`; en-boy oranı korunur |
-| 2. Kamera telafisi | `EgoMotionCompensator` | Maskelenmiş Shi-Tomasi köşeleri, Lucas-Kanade akışı, RANSAC homografi |
-| 3. Takip | `EntityTracker` | IoU + merkez uzaklığı eşleştirme, Kalman filtresi; hiçbir tespit bastırılmaz |
-| 4. Tahmin | `TrajectoryForecaster` | `TrajectoryGRU` (2 katman, 64 gizli birim); genç izler için sabit hız yedeği |
-| 5. Çizim | `Visualizer` | Kutular, kimlikler, zemine kilitli izler, tahmin eğrisi, 2σ elipsler |
-
-Tahmin ağı ölçekten bağımsız öznitelikler kullanır: `[dx/w, dy/h, dw/w, dh/h]`. Böylece irtifa ve kamera eğimi değişse de girdiler benzer kalır. Ağ, sabit hızlı uzatmanın üzerine bir düzeltme öğrenir; eğitilmemiş hali doğrusal tahmine eşittir.
-
-## Depo yapısı
-
-```
-trajectory_common.py      Ortak çekirdek: kamera telafisi, öznitelikler, GRU, checkpoint
-inference_pipeline.py     Video üzerinde tespit + takip + tahmin
-train_trajectory_gru.py   VisDrone-VID / UAVDT üzerinde TrajectoryGRU eğitimi
-tools/plot_training.py    Eğitim eğrileri
-tools/evaluate_model.py   Doğrulama verisinde değerlendirme grafikleri
-weights/                  Model ağırlıkları (git'e eklenmez)
-docs/                     Grafikler ve ekran görüntüleri
-```
-
-## Kurulum
-
-```bash
-git clone <depo-adresi>
+ARES: Aerial Trajectory ForecastingİHA (drone) görüntülerinde yaya, araç ve hareketli unsurların tespiti, çoklu nesne takibi ve kısa vadeli yörünge tahmini (trajectory forecasting) yapan uçtan uca bir bilgisayarlı görü hattıdır.Sistem; hareketli bir hava platformundan alınan her karede nesneleri tespit eder, İHA'nın kendi hareketini (ego-motion) telafi ederek arka planı sabitler, her unsura kalıcı bir kimlik (ID) atar ve nesnenin 0,5 / 1,0 / 1,5 saniye sonra (30 FPS'te $t+15$, $t+30$, $t+45$ kare) nerede olacağını $2\sigma$ belirsizlik elipsleriyle birlikte tahmin eder.🎯 Kullanım AlanlarıArama ve Kurtarma (SAR): Zorlu arazi koşullarında kayıp kişilerin veya hareketli ekiplerin yönelim analizi ve bir sonraki konumlarının öngörülmesi.Saha ve Çevre Güvenliği: Geniş açık alanlarda, tesis çevrelerinde ve kritik altyapı bölgelerinde izinsiz girişlerin veya şüpheli hareketlerin gerçek zamanlı izlenmesi.Trafik ve Kalabalık Yönetimi: Kırsal ve kentsel hava görüntülerinde yaya/araç yoğunluğu ve rota analizi.⚙️ Sistem Mimarisi (Nasıl Çalışır?)AşamaSınıfGörev1. TespitDetectorYOLOv8 model.predict; en-boy oranı korunarak hızlı nesne tespiti2. Kamera TelafisiEgoMotionCompensatorMaskelenmiş Shi-Tomasi köşeleri, Lucas-Kanade optik akışı ve RANSAC homografi3. TakipEntityTrackerIoU + merkez uzaklığı eşleştirme ve Kalman filtresi ile kesintisiz kimlik takibi4. Yörünge TahminiTrajectoryGRU2 katmanlı, 64 gizli birimli GRU ağı (yeni başlayan izler için sabit hız yedeği)5. GörselleştirmeVisualizerSınırlayıcı kutular, kimlikler, zemine kilitli geçmiş izler, tahmin eğrisi ve $2\sigma$ elipslerÖlçekten Bağımsız Öznitelik MühendisliğiTahmin ağı, İHA'nın irtifa ve kamera açısı değişimlerinden etkilenmemek için normalize edilmiş öznitelikler kullanır:
+$$[\Delta x / w, \ \Delta y / h, \ \Delta w / w, \ \Delta h / h]$$Ağ, doğrudan mutlak koordinatlar yerine sabit hızlı doğrusal uzatmanın üzerine bir rezidüel (artık) düzeltme öğrenir. Bu sayede yeni tespit edilen ve henüz yeterli geçmişi olmayan hedeflerde bile doğrusal tahmin ile kararlı çıktı üretilir.📁 Depo Yapısıaerial-trajectory-forecasting/
+├── trajectory_common.py      # Ortak çekirdek: kamera telafisi, öznitelik çıkarımı, GRU, checkpoint
+├── inference_pipeline.py     # Video üzerinde tespit + takip + yörünge tahmini hattı
+├── train_trajectory_gru.py   # VisDrone-VID ve UAVDT üzerinde TrajectoryGRU eğitimi
+├── tools/
+│   ├── plot_training.py      # Eğitim ve doğrulama kayıp eğrileri oluşturucu
+│   └── evaluate_model.py     # Doğrulama seti üzerinde ufuk bazlı değerlendirme grafikleri
+├── weights/                  # Model ağırlıkları (git'e dahil edilmez)
+├── docs/                     # Rapor grafikleri ve örnek çıktılar
+├── requirements.txt          # Proje bağımlılıkları
+└── README.md
+🛠️ KurulumPython 3.10 veya üzeri gerekir. Çıkarım (inference) aşaması için GPU zorunlu değildir.git clone https://github.com/AhmetPehlivan-droid/military_yolo_trajectory.git
 cd aerial-trajectory-forecasting
 pip install -r requirements.txt
-```
-
-Python 3.10 veya üstü gerekir. GPU zorunlu değildir.
-
-## Kullanım
-
-Ağırlıkları `weights/` klasörüne koy:
-
-- `weights/detector.pt`: YOLOv8 tespit ağırlığın
-- `weights/trajectory_gru.pth`: eğitilmiş tahmin modeli (yoksa sabit hız tahmini kullanılır)
-
-```bash
-python inference_pipeline.py --source input.mp4 --output output.mp4
-```
-
-| Parametre | Varsayılan | Açıklama |
-|---|---|---|
-| `--weights` | `weights/detector.pt` | YOLOv8 ağırlığı |
-| `--gru` | `weights/trajectory_gru.pth` | TrajectoryGRU checkpoint'i |
-| `--source` | `input.mp4` | Girdi videosu |
-| `--output` | `output.mp4` | Çıktı videosu |
-| `--ego-max-dim` | `960` | Akış hesabı için uzun kenar (0 = yerel çözünürlük) |
-| `--no-preview` | kapalı | Önizleme penceresini açmaz |
-
-Çıktıda sarı eğriler GRU tahminini, gri eğriler sabit hız yedeğini gösterir. Sağ üstteki `EGO OK` kamera telafisinin çalıştığını, `EGO HOLD` o karede homografinin reddedildiğini belirtir.
-
-## Eğitim
-
-Veri setleri depoya dahil değildir; kendi kaynaklarından indirilmelidir.
-
-```bash
-python train_trajectory_gru.py \
+🚀 Kullanım (Çıkarım / Inference)Eğitilmiş model ağırlıklarını weights/ dizini altına yerleştirin:weights/detector.pt: Özel eğitilmiş (fine-tuned) YOLOv8 tespit ağırlıklarıweights/trajectory_gru.pth: Eğitilmiş TrajectoryGRU ağırlıkları (dosya yoksa sistem otomatik olarak sabit hız tahminine geçer)python inference_pipeline.py --source input.mp4 --output output.mp4
+Komut Satırı ParametreleriParametreVarsayılanAçıklama--weightsweights/detector.ptYOLOv8 tespit modeli ağırlık yolu--gruweights/trajectory_gru.pthTrajectoryGRU checkpoint dosyası--sourceinput.mp4İşlenecek girdi videosu--outputoutput.mp4Tahminlerin çizildiği çıktı videosu--ego-max-dim960Optik akış hesabı için maksimum çözünürlük kenarı (0 = orijinal boyut)--no-previewFalseÇalışma sırasında canlı önizleme penceresini kapatırGörsel Göstergeler: Çıktı videosunda sarı eğriler TrajectoryGRU tahminini, gri eğriler sabit hız referansını gösterir. Sağ üst köşedeki EGO OK kamera hareketi telafisinin aktif olduğunu, EGO HOLD ise ilgili karede homografi matrisinin güvenilir bulunmayıp pas geçildiğini belirtir.🧠 Eğitim ve DeğerlendirmeEğitim veri setleri boyutları nedeniyle depoya dahil edilmemiştir; ilgili kaynaklardan indirilmelidir.python train_trajectory_gru.py \
   --visdrone-root <VisDrone2019-VID-train> <VisDrone2019-VID-val> \
   --uavdt-images <UAV-benchmark-M> \
   --uavdt-gt <UAV-benchmark-MOTD_v1.0/GT> \
   --output weights/trajectory_gru.pth
-```
-
-- Her VisDrone kökü `sequences/` ve `annotations/` klasörlerini içermelidir.
-- UAVDT etiketleri `<dizi>_gt_whole.txt` biçiminde olmalıdır.
-- Homografiler `homography_cache/` altına kaydedilir; ikinci çalıştırma bu adımı atlar.
-- Eğitim/doğrulama ayrımı dizi bazında yapılır (%15 doğrulama).
-- Epoch geçmişi `weights/trajectory_gru.history.json` dosyasına yazılır.
-
-Grafikler:
-
-```bash
-python tools/plot_training.py weights/trajectory_gru.history.json --out docs
+Her VisDrone kök dizini sequences/ ve annotations/ klasörlerini içermelidir.UAVDT etiketleri <dizi>_gt_whole.txt formatında olmalıdır.Hesaplanan homografi matrisleri homography_cache/ altında önbelleğe alınır; sonraki eğitimlerde yeniden hesaplanmaz.Eğitim/doğrulama ayrımı veri sızıntısını önlemek için dizi (sequence) bazında (%85 eğitim / %15 doğrulama) yapılır.Grafik ve Metrik Çıktılarıpython tools/plot_training.py weights/trajectory_gru.history.json --out docs
 python tools/evaluate_model.py --checkpoint weights/trajectory_gru.pth \
   --visdrone-root <VisDrone2019-VID-train> <VisDrone2019-VID-val> \
   --uavdt-images <UAV-benchmark-M> --uavdt-gt <UAV-benchmark-MOTD_v1.0/GT> --out docs
-```
-
-`plot_training.py` ayrıca konsol çıktısının yapıştırıldığı bir `.txt` dosyasını da okur.
-
-## Sonuçlar
-
-VisDrone-VID (train + val) ve UAVDT üzerinde 97 eğitim, 17 doğrulama dizisi; 310.959 eğitim ve 54.174 doğrulama örneği. Hatalar nesnenin kendi kutu boyutu birimindedir; kaydedilen model 17. epoch'a aittir.
-
-| Ufuk | TrajectoryGRU | Sabit hız | İyileşme |
-|---|---|---|---|
-| t+15 | 0.190 | 0.229 | %17 |
-| t+30 | 0.396 | 0.502 | %21 |
-| t+45 | 0.666 | 0.856 | %22 |
-
-## Sınırlamalar
-
-- Sonuçlar temiz etiket kutularıyla ölçülmüştür; canlı YOLO tespitlerinde hata daha yüksek olur.
-- Eğitim verisi araç ve yaya ağırlıklıdır, hayvan içermez. Yaban hayatı görüntülerinde kendi verinizle ek eğitim gerekebilir.
-- Tahminler piksel cinsindendir; metreye çevirmek için irtifa ve kamera bilgisi gerekir.
-- Ufuklar kare sayısıyla tanımlıdır; 30 FPS dışındaki videolarda gerçek süre değişir.
-- Tespit `max_det=25` ile sınırlıdır; yoğun sürü ve kalabalıklarda bu sınır aşılabilir.
-
-## Veri setleri
-
-- [VisDrone](https://github.com/VisDrone/VisDrone-Dataset): yalnızca akademik kullanım için sunulmaktadır.
-- [UAVDT](https://sites.google.com/site/daviddo0323/projects/uavdt): kullanım koşulları için veri setinin kendi sayfasına bakın.
-
-Bu depo veri setlerini ve onlardan türetilmiş görüntüleri içermez.
+📊 Deneysel SonuçlarVisDrone-VID (train + val) ve UAVDT veri setlerinden elde edilen 97 eğitim (310.959 örnek) ve 17 doğrulama (54.174 örnek) dizisi üzerindeki performans karşılaştırması (17. epoch checkpoint'i, hata birimi nesnenin kendi kutu boyutuna normalize edilmiştir):Tahmin UfkuSüre (30 FPS)TrajectoryGRU HatasıSabit Hız Hatasıİyileşme Oranı$t+15$0.5 sn0.1900.229%17$t+30$1.0 sn0.3960.502%21$t+45$1.5 sn0.6660.856%22⚠️ Bilinen SınırlamalarTablodaki doğrulama metrikleri yer gerçeği (ground-truth) kutuları üzerinden ölçülmüştür; canlı YOLOv8 çıkarımlarında tespit gürültüsüne bağlı olarak hata payı artabilir.Tahmin çıktıları piksel/kutu ölçeğindedir; gerçek dünya metrik koordinatlarına dönüştürmek için İHA telemetrisi (irtifa, gimbal açısı ve kamera kalibrasyon matrisi) entegrasyonu gerekir.Ufuk adımları kare sayısına ($15, 30, 45$) sabitlenmiştir; farklı FPS değerlerine sahip videolarda fiziksel süre değişir.Tek karede maksimum tespit sayısı max_det=25 ile sınırlandırılmıştır.📚 Veri SetleriVisDrone Dataset — Akademik ve araştırma amaçlı kullanım.UAVDT Benchmark — İHA tabanlı nesne tespiti ve takibi veri seti.
