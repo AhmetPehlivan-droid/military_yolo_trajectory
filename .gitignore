@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Model weights and checkpoints (share via Releases, not git)
+*.pt
+*.pth
+*.onnx
+
+# Videos and datasets
+*.mp4
+*.avi
+*.mov
+*.mkv
+data/
+datasets/
+
+# Generated
+homography_cache/
+*.history.json
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
